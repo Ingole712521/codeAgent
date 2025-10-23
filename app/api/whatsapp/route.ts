@@ -33,8 +33,11 @@ const client = twilio(
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 Starting WhatsApp webhook processing...');
+    
     // Parse the incoming webhook data from Twilio
     const formData = await request.formData();
+    console.log('📋 Form data parsed successfully');
     const messageData: TwilioWhatsAppMessage = {
       MessageSid: formData.get('MessageSid') as string,
       From: formData.get('From') as string,
@@ -55,6 +58,12 @@ export async function POST(request: NextRequest) {
     console.log(`WhatsApp ID: ${messageData.WaId || 'N/A'}`);
 
     // Validate required environment variables
+    console.log('🔍 Checking environment variables...');
+    console.log('TWILIO_SID:', process.env.TWILIO_SID ? '✅ Set' : '❌ Missing');
+    console.log('TWILIO_AUTH:', process.env.TWILIO_AUTH ? '✅ Set' : '❌ Missing');
+    console.log('TWILIO_WHATSAPP_FROM:', process.env.TWILIO_WHATSAPP_FROM ? '✅ Set' : '❌ Missing');
+    console.log('OLLAMA_API_URL:', process.env.OLLAMA_API_URL ? '✅ Set' : '❌ Missing');
+    
     if (!process.env.TWILIO_SID || !process.env.TWILIO_AUTH || !process.env.TWILIO_WHATSAPP_FROM || !process.env.OLLAMA_API_URL) {
       console.error('❌ Missing required environment variables');
       return NextResponse.json(
@@ -114,9 +123,17 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error processing WhatsApp message:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
     
     return NextResponse.json(
-      { error: 'Failed to process message' },
+      { 
+        error: 'Failed to process message',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
