@@ -74,28 +74,52 @@ export async function POST(request: NextRequest) {
 
     // Send message to Ollama for AI response
     console.log('🤖 Sending message to Ollama...');
+    console.log('🔗 Ollama URL:', `${process.env.OLLAMA_API_URL}/api/generate`);
     
-    const ollamaRequest: OllamaRequest = {
-      model: 'llama3.1',
-      prompt: messageData.Body,
-      stream: false
-    };
+    // Try different model names in case the exact name differs
+    const possibleModels = ['llama3.1', 'llama3', 'llama'];
+    let aiResponse = '⚠️ No response from AI';
+    
+    for (const modelName of possibleModels) {
+      try {
+        console.log(`🤖 Trying model: ${modelName}`);
+        
+        const ollamaRequest: OllamaRequest = {
+          model: modelName,
+          prompt: messageData.Body,
+          stream: false
+        };
 
-    const ollamaResponse = await fetch(`${process.env.OLLAMA_API_URL}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(ollamaRequest),
-    });
+        console.log('📤 Ollama request:', JSON.stringify(ollamaRequest, null, 2));
 
-    if (!ollamaResponse.ok) {
-      console.error('❌ Ollama API error:', ollamaResponse.status, ollamaResponse.statusText);
-      throw new Error(`Ollama API error: ${ollamaResponse.status}`);
+        const ollamaResponse = await fetch(`${process.env.OLLAMA_API_URL}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(ollamaRequest),
+        });
+
+        console.log('📥 Ollama response status:', ollamaResponse.status);
+
+        if (!ollamaResponse.ok) {
+          const errorText = await ollamaResponse.text();
+          console.error(`❌ Model ${modelName} failed:`, ollamaResponse.status, errorText);
+          continue; // Try next model
+        }
+
+        const ollamaData: OllamaResponse = await ollamaResponse.json();
+        console.log('📥 Ollama response data:', JSON.stringify(ollamaData, null, 2));
+        
+        aiResponse = ollamaData.response || '⚠️ No response from AI';
+        console.log(`✅ Success with model: ${modelName}`);
+        break; // Success, exit the loop
+        
+      } catch (modelError) {
+        console.error(`❌ Error with model ${modelName}:`, modelError);
+        continue; // Try next model
+      }
     }
-
-    const ollamaData: OllamaResponse = await ollamaResponse.json();
-    const aiResponse = ollamaData.response || '⚠️ No response from AI';
 
     console.log('🤖 AI Response:', aiResponse);
 
