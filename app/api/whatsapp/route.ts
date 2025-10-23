@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     console.log('🔗 Ollama URL:', `${process.env.OLLAMA_API_URL}/api/generate`);
     
     // Try different model names in case the exact name differs
-    const possibleModels = ['llama3.1', 'llama3', 'llama'];
+    const possibleModels = ['llama3.2:3b', 'llama3.2', 'llama3.1', 'llama3', 'llama'];
     let aiResponse = '⚠️ No response from AI';
     
     for (const modelName of possibleModels) {
