@@ -12,6 +12,19 @@ interface TwilioWhatsAppMessage {
   WaId?: string;
 }
 
+// TypeScript types for Ollama API
+interface OllamaRequest {
+  model: string;
+  prompt: string;
+  stream?: boolean;
+}
+
+interface OllamaResponse {
+  response: string;
+  done: boolean;
+  context?: number[];
+}
+
 // Initialize Twilio client with environment variables
 const client = twilio(
   process.env.TWILIO_SID,
@@ -42,31 +55,55 @@ export async function POST(request: NextRequest) {
     console.log(`WhatsApp ID: ${messageData.WaId || 'N/A'}`);
 
     // Validate required environment variables
-    if (!process.env.TWILIO_SID || !process.env.TWILIO_AUTH || !process.env.TWILIO_WHATSAPP_FROM) {
-      console.error('❌ Missing required Twilio environment variables');
+    if (!process.env.TWILIO_SID || !process.env.TWILIO_AUTH || !process.env.TWILIO_WHATSAPP_FROM || !process.env.OLLAMA_API_URL) {
+      console.error('❌ Missing required environment variables');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }
       );
     }
 
-    // Create the reply message
-    const replyMessage = `👋 Hello! You said: "${messageData.Body}"`;
+    // Send message to Ollama for AI response
+    console.log('🤖 Sending message to Ollama...');
+    
+    const ollamaRequest: OllamaRequest = {
+      model: 'llama3.1',
+      prompt: messageData.Body,
+      stream: false
+    };
 
-    // Send reply back to the user
+    const ollamaResponse = await fetch(`${process.env.OLLAMA_API_URL}/api/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(ollamaRequest),
+    });
+
+    if (!ollamaResponse.ok) {
+      console.error('❌ Ollama API error:', ollamaResponse.status, ollamaResponse.statusText);
+      throw new Error(`Ollama API error: ${ollamaResponse.status}`);
+    }
+
+    const ollamaData: OllamaResponse = await ollamaResponse.json();
+    const aiResponse = ollamaData.response || '⚠️ No response from AI';
+
+    console.log('🤖 AI Response:', aiResponse);
+
+    // Send AI response back to the user
     const message = await client.messages.create({
-      body: replyMessage,
+      body: aiResponse,
       from: process.env.TWILIO_WHATSAPP_FROM,
       to: messageData.From,
     });
 
-    console.log(`✅ Reply sent successfully. Message SID: ${message.sid}`);
+    console.log(`✅ AI Reply sent successfully. Message SID: ${message.sid}`);
 
     // Return TwiML response (required by Twilio)
     return new NextResponse(
       `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message>${replyMessage}</Message>
+  <Message>${aiResponse}</Message>
 </Response>`,
       {
         headers: {
