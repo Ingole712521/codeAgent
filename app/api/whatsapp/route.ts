@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 
-// TypeScript types for WhatsApp messages
 interface TwilioWhatsAppMessage {
   MessageSid: string;
   From: string;
@@ -12,7 +11,6 @@ interface TwilioWhatsAppMessage {
   WaId?: string;
 }
 
-// TypeScript types for Ollama API
 interface OllamaRequest {
   model: string;
   prompt: string;
@@ -25,7 +23,6 @@ interface OllamaResponse {
   context?: number[];
 }
 
-// Initialize Twilio client with environment variables
 const client = twilio(
   process.env.TWILIO_SID,
   process.env.TWILIO_AUTH
@@ -33,9 +30,7 @@ const client = twilio(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 Starting WhatsApp webhook processing...');
-    
-    // Parse the incoming webhook data from Twilio
+    console.log(' Starting WhatsApp webhook processing...');
     const formData = await request.formData();
     console.log('📋 Form data parsed successfully');
     const messageData: TwilioWhatsAppMessage = {
@@ -48,7 +43,6 @@ export async function POST(request: NextRequest) {
       WaId: formData.get('WaId') as string,
     };
 
-    // Log the incoming message
     console.log('📱 WhatsApp Message Received:');
     console.log(`From: ${messageData.From}`);
     console.log(`To: ${messageData.To}`);
@@ -56,8 +50,6 @@ export async function POST(request: NextRequest) {
     console.log(`Message SID: ${messageData.MessageSid}`);
     console.log(`Profile Name: ${messageData.ProfileName || 'N/A'}`);
     console.log(`WhatsApp ID: ${messageData.WaId || 'N/A'}`);
-
-    // Validate required environment variables
     console.log('🔍 Checking environment variables...');
     console.log('TWILIO_SID:', process.env.TWILIO_SID ? '✅ Set' : '❌ Missing');
     console.log('TWILIO_AUTH:', process.env.TWILIO_AUTH ? '✅ Set' : '❌ Missing');
@@ -65,24 +57,22 @@ export async function POST(request: NextRequest) {
     console.log('OLLAMA_API_URL:', process.env.OLLAMA_API_URL ? '✅ Set' : '❌ Missing');
     
     if (!process.env.TWILIO_SID || !process.env.TWILIO_AUTH || !process.env.TWILIO_WHATSAPP_FROM || !process.env.OLLAMA_API_URL) {
-      console.error('❌ Missing required environment variables');
+      console.error(' Missing required environment variables');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }
       );
     }
-
-    // Send message to Ollama for AI response
-    console.log('🤖 Sending message to Ollama...');
-    console.log('🔗 Ollama URL:', `${process.env.OLLAMA_API_URL}/api/generate`);
+    console.log(' Sending message to Ollama...');
+    console.log(' Ollama URL:', `${process.env.OLLAMA_API_URL}/api/generate`);
     
     // Try different model names in case the exact name differs
     const possibleModels = ['llama3.2:3b', 'llama3.2', 'llama3.1', 'llama3', 'llama'];
-    let aiResponse = '⚠️ No response from AI';
+    let aiResponse = 'No response from AI';
     
     for (const modelName of possibleModels) {
       try {
-        console.log(`🤖 Trying model: ${modelName}`);
+        console.log(` Trying model: ${modelName}`);
         
         const ollamaRequest: OllamaRequest = {
           model: modelName,
@@ -90,7 +80,7 @@ export async function POST(request: NextRequest) {
           stream: false
         };
 
-        console.log('📤 Ollama request:', JSON.stringify(ollamaRequest, null, 2));
+        console.log(' Ollama request:', JSON.stringify(ollamaRequest, null, 2));
 
         const ollamaResponse = await fetch(`${process.env.OLLAMA_API_URL}/api/generate`, {
           method: 'POST',
@@ -100,23 +90,23 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify(ollamaRequest),
         });
 
-        console.log('📥 Ollama response status:', ollamaResponse.status);
+        console.log(' Ollama response status:', ollamaResponse.status);
 
         if (!ollamaResponse.ok) {
           const errorText = await ollamaResponse.text();
-          console.error(`❌ Model ${modelName} failed:`, ollamaResponse.status, errorText);
+          console.error(` Model ${modelName} failed:`, ollamaResponse.status, errorText);
           continue; // Try next model
         }
 
         const ollamaData: OllamaResponse = await ollamaResponse.json();
-        console.log('📥 Ollama response data:', JSON.stringify(ollamaData, null, 2));
+        console.log(' Ollama response data:', JSON.stringify(ollamaData, null, 2));
         
-        aiResponse = ollamaData.response || '⚠️ No response from AI';
-        console.log(`✅ Success with model: ${modelName}`);
+        aiResponse = ollamaData.response || ' No response from AI';
+        console.log(` Success with model: ${modelName}`);
         break; // Success, exit the loop
         
       } catch (modelError) {
-        console.error(`❌ Error with model ${modelName}:`, modelError);
+        console.error(` Error with model ${modelName}:`, modelError);
         continue; // Try next model
       }
     }
@@ -130,7 +120,7 @@ export async function POST(request: NextRequest) {
       to: messageData.From,
     });
 
-    console.log(`✅ AI Reply sent successfully. Message SID: ${message.sid}`);
+    console.log(` AI Reply sent successfully. Message SID: ${message.sid}`);
 
     // Return TwiML response (required by Twilio)
     return new NextResponse(
@@ -146,8 +136,8 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('❌ Error processing WhatsApp message:', error);
-    console.error('❌ Error details:', {
+    console.error(' Error processing WhatsApp message:', error);
+    console.error(' Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined
